@@ -1,0 +1,91 @@
+# base file to deploy 
+name: staking-frontend
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the staging branch
+on:
+  push:
+    branches: [ name ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build: 
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Setup nodejs v16
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
+
+      - name: Install dependencies
+        run: npm i --unsafe-perm --force
+        
+      - name: Build
+        run: npx browserslist@latest --update-db && CI=false npm run build
+
+      - name: Node SASS rebuild
+        run: npm rebuild node-sass --force
+      
+      - name: Docker build 
+        run: docker build -t mukulxinaam/xfinite-staking:prod-'${{github.run_number}}' . #docker image name
+      
+      - name: Docker login 
+        run: docker login --username '${{secrets.DOCKER_LOGIN}}' --password '${{secrets.DOCKER_PASSWORD}}'
+
+      - name: tag docker image
+        run: docker tag mukulxinaam/xfinite-staking:prod-'${{github.run_number}}' '${{secrets.DOCKER_LOGIN}}'/xfinite-staking:prod-'${{github.run_number}}'
+
+      - name: push docker image
+        run: docker push '${{secrets.DOCKER_LOGIN}}'/xfinite-staking:prod-'${{github.run_number}}'
+
+    #   - name: Azure Kubernetes set context #deploying on kubernetes
+    #     uses: Azure/aks-set-context@v1
+    #     with:
+    #       # Azure credentials i.e. output of `az ad sp create-for-rbac --sdk-auth`
+    #       creds: '${{secrets.AZURE_CREDENTIALS}}'
+    #       # Resource Group Name
+    #       resource-group: dns-mzaalo
+    #       # AKS Cluster Name
+    #       cluster-name: mzaalo-staging
+
+    # # Create K8s secrets to pull images
+    #   - name: Create secret in Kubernetes cluster
+    #     uses: Azure/k8s-create-secret@v1.1
+    #     with:
+    #       # Container registry url
+    #       container-registry-url: https://index.docker.io/v1/
+    #       # Container registry username
+    #       container-registry-username: '${{secrets.DOCKER_LOGIN}}'
+    #       # Container registry password
+    #       container-registry-password:  '${{secrets.DOCKER_PASSWORD}}'
+    #       # Type of Kubernetes secret. For example, docker-registry or generic
+    #       secret-type: docker-registry
+    #       # Name of the secret. You can use this secret name in the Kubernetes YAML configuration file.
+    #       secret-name: docker-image-pull-secret
+          
+    #     # Deploy to k8s cluster
+    #   - name: Deploy to Kubernetes cluster
+    #     uses: Azure/k8s-deploy@v1
+    #     with:        
+    #       manifests: |
+    #         k8s/deployment.yaml
+    #         k8s/service.yaml
+    #       # Fully qualified resource URL of the image(s) to be used for substitutions on the manifest files Example: contosodemo.azurecr.io/helloworld:test
+    #       images: '${{secrets.DOCKER_LOGIN}}/xfinite-staking:prod-${{github.run_number}}'
+    #       # Name of a docker-registry secret that has already been set up within the cluster. Each of these secret names are added under imagePullSecrets field for the workloads found in the input manifest files
+    #       imagepullsecrets: ${{secrets.DOCKER_SECRET_NAME}}
+    #       # deploy/promote/reject
+    #       action: deploy
+          
+      
+          
