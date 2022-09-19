@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staking-app
+  namespace: default
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      app: staking-app
+  template:
+    metadata:
+      labels:
+        app: staking-app
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      imagePullSecrets:
+      - name: devops-docker
+      containers:
+      - name: staking-app
+        image: mukulxinaam/xfinite-staking:staging-14
+        resources:
+            limits:
+              cpu: 1000m
+              memory: 1.0Gi
+            requests:
+              cpu: 100m
+              memory: 0.5Gi
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: staking-app
+
